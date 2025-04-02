@@ -1,0 +1,98 @@
+services:
+  aimodel:
+    image: enterprise-computer-use:local
+    ports:
+      - "5900:5900"
+      - "8000:8000"
+      - "8501:8501"
+      - "6080:6080"
+      - "8080:8080"
+      - "50051:50051"
+    environment:
+      - ANTHROPIC_API_KEY=---------
+      - OS=linux
+      - PROJECT=claude_computer_use
+    volumes:
+      - ./ai-model/enterprise_computer_use:/home/computeruse/enterprise_computer_use/
+      - .anthropic:/home/computeruse/.anthropic
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8010:8000"
+    depends_on:
+      - db
+      - aimodel
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/fastapi_db
+      - SECRET_KEY=09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - APP_NAME=FastAPI Backend
+      - ENVIRONMENT=development
+    volumes:
+      - ./backend/app:/app
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  db:
+    image: postgres:15
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=fastapi_db
+    ports:
+      - "5432:5432"
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    restart: always
+
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - backend
+  #   # volumes:
+  #   #   - ./frontend:/app
+  #   #   - /app/node_modules
+  #   #   - /app/.next
+  #   restart: always
+  #   environment:
+  #     - NEXT_PUBLIC_API_URL=http://localhost:8010/api/v1
+
+volumes:
+  postgres_data:
+  pgadmin_data:
