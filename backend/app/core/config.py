@@ -1,6 +1,6 @@
-from typing import List, Optional
-from pydantic_settings import BaseSettings
-from pydantic import AnyHttpUrl, validator
+from typing import List
+from pydantic_settings import BaseSettings # type: ignore
+from pydantic import validator # type: ignore
 
 
 class Settings(BaseSettings):
@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str
 
     DATABASE_URL: str
+    UPLOAD_DIR: str = 'uploads/'
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     

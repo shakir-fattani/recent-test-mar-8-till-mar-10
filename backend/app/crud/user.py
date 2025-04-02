@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional, Union
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session # type: ignore
 
 from core.security import get_password_hash, verify_password
 from models.user import User

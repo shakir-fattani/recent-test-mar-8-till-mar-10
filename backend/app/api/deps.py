@@ -1,10 +1,10 @@
 from typing import Generator
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jose import jwt
-from pydantic import ValidationError
-from sqlalchemy.orm import Session
+from fastapi import Depends, HTTPException, status # type: ignore
+from fastapi.security import OAuth2PasswordBearer # type: ignore
+from jose import jwt # type: ignore
+from pydantic import ValidationError # type: ignore
+from sqlalchemy.orm import Session # type: ignore
 
 from core.config import settings
 from core.database import get_db

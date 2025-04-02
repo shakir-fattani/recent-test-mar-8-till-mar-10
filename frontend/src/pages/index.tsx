@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ChatInterface from '../components/ChatInterface';
 import VNCDisplay from '../components/VNCDisplay';
 import FileUpload from '../components/FileUpload';
 import TaskHistory from '../components/TaskHistory';
 import { Row, Col } from 'react-bootstrap';
-import useHolderJs from '../../hooks/useHolderJs';
+import useHolderJs from '../hooks/useHolderJs';
 import { FiMaximize, FiMinus, FiX } from 'react-icons/fi';
 
 const Home: React.FC = () => {
   useHolderJs();
+  const [chatId, setChatId] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+
   return (
     <div style={{ width: '100%', padding: '2vw' }}>
       <Row style={{ marginBottom: '2vh', height: '6vh' }}>
@@ -27,7 +30,13 @@ const Home: React.FC = () => {
         </Col>
       </Row>
       <Row>
-        <TaskHistory />
+        <TaskHistory
+          chatId={chatId}
+          loading={loading}
+          setLoading={setLoading}
+          newChat={() => setChatId('')}
+          openExistingChat={setChatId}
+        />
         <VNCDisplay
           colSize={6}
           src={
@@ -35,7 +44,12 @@ const Home: React.FC = () => {
           }
         />
         <Col xs={3}>
-          <ChatInterface />
+          <ChatInterface
+            loading={loading}
+            setLoading={setLoading}
+            chatId={chatId}
+            setChatId={setChatId}
+          />
           <FileUpload />
         </Col>
       </Row>

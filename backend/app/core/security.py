@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from typing import Any, Union
 
-from jose import jwt
-from passlib.context import CryptContext
+from jose import jwt # type: ignore
+from passlib.context import CryptContext # type: ignore
 
 from core.config import settings
 

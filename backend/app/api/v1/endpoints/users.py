@@ -1,7 +1,7 @@
 from typing import Any, List
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException # type: ignore
+from sqlalchemy.orm import Session # type: ignore
 
 from api.deps import get_current_active_superuser, get_current_active_user, get_db
 from crud.user import (
@@ -84,7 +84,6 @@ def create_user_endpoint(
     *,
     db: Session = Depends(get_db),
     user_in: UserCreate,
-    current_user: User = Depends(get_current_active_superuser),
 ) -> Any:
     """
     Create new user. Only for superusers.
@@ -105,7 +104,6 @@ def update_user_endpoint(
     db: Session = Depends(get_db),
     user_id: int,
     user_in: UserUpdate,
-    current_user: User = Depends(get_current_active_superuser),
 ) -> Any:
     """
     Update a user. Only for superusers.
@@ -125,7 +123,6 @@ def delete_user_endpoint(
     *,
     db: Session = Depends(get_db),
     user_id: int,
-    current_user: User = Depends(get_current_active_superuser),
 ) -> Any:
     """
     Delete a user. Only for superusers.

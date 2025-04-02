@@ -1,10 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback } from 'react';
 import { AiOutlineCheckCircle, AiOutlineCloudUpload } from 'react-icons/ai';
 import { MdClear } from 'react-icons/md';
 import '../styles/drag-drop.css';
+import { Spinner } from 'react-bootstrap';
 
 interface DragNdropProps {
-  onFilesSelected: (files: File[]) => void;
+  files: FileObj[];
+  loading: boolean;
+  onNewFile: (files: FileObj) => void;
+  onFileDelete: (id: string) => void;
+}
+
+export interface FileObj {
+  id: string;
+  name: string;
+  file?: File; // in-case of local file
+  size: number;
+  type: string;
+  lastModified: string;
+  checksum?: string; // in-case of remote file
+  status: string;
 }
 
 const formatFileSize = (bytes: number): string => {
@@ -13,32 +28,76 @@ const formatFileSize = (bytes: number): string => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const DragNdrop: React.FC<DragNdropProps> = ({ onFilesSelected }) => {
-  const [files, setFiles] = useState<File[]>([]);
+const DragNdrop: React.FC<DragNdropProps> = ({ loading, files, onNewFile, onFileDelete }) => {
+  const handleFileChange = useCallback(
+    (event: React.ChangeEvent) => {
+      event.preventDefault();
+      if (loading) {
+        alert('Please wait for the file to be processed');
+        return;
+      }
 
-  const handleFileChange = (event: React.ChangeEvent) => {
-    const selectedFiles = (event.target as HTMLInputElement).files;
-    if (!selectedFiles || selectedFiles.length == 0) return;
+      const selectedFiles = (event.target as HTMLInputElement).files;
+      if (!selectedFiles || selectedFiles.length == 0) return;
 
-    const newFiles = Array.from(selectedFiles);
-    setFiles((prevFiles) => [...prevFiles, ...newFiles] as File[]);
-  };
-  const handleDrop = (event: React.DragEvent) => {
-    event.preventDefault();
-    const droppedFiles = event.dataTransfer!.files;
-    if (droppedFiles.length == 0) return;
+      if (selectedFiles.length != 1) {
+        alert('only single file at a time');
+        return;
+      }
 
-    const newFiles = Array.from(droppedFiles);
-    setFiles((prevFiles) => [...prevFiles, ...newFiles] as File[]);
-  };
+      const file = Array.from(selectedFiles)[0];
+      onNewFile({
+        id: Date.now() + '',
+        name: file.name,
+        file,
+        size: file.size,
+        type: file.type,
+        checksum: undefined,
+        status: 'uploading',
+        lastModified: file.lastModified + '',
+      });
+    },
+    [loading],
+  );
+  const handleDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+      if (loading) {
+        alert('Please wait for the file to be processed');
+        return;
+      }
 
-  const handleRemoveFile = (index: number) => {
-    setFiles((prevFiles) => prevFiles.filter((_, i) => i !== index));
-  };
+      const droppedFiles = event.dataTransfer!.files;
+      if (droppedFiles.length == 0) return;
+      if (droppedFiles.length != 1) {
+        alert('only single file at a time');
+        return;
+      }
+      const file = Array.from(droppedFiles)[0];
+      onNewFile({
+        id: Date.now() + '',
+        name: file.name,
+        file,
+        size: file.size,
+        type: file.type,
+        checksum: undefined,
+        status: 'uploading',
+        lastModified: file.lastModified + '',
+      });
+    },
+    [loading],
+  );
 
-  useEffect(() => {
-    onFilesSelected(files);
-  }, [files, onFilesSelected]);
+  const handleRemoveFile = useCallback(
+    (index: string) => {
+      if (loading) {
+        alert('Please wait for the file to be processed');
+        return;
+      }
+      onFileDelete(index);
+    },
+    [loading],
+  );
 
   return (
     <section className="drag-drop" style={{ width: '100%' }}>
@@ -48,28 +107,33 @@ const DragNdrop: React.FC<DragNdropProps> = ({ onFilesSelected }) => {
         style={{ width: '100%', minHeight: '35vh' }}
         onDragOver={(event) => event.preventDefault()}
       >
-        <>
-          <AiOutlineCloudUpload
-            style={{ fontSize: '60px', paddingTop: '1vh', paddingBottom: '1vh' }}
-          />
-          <div className="upload-info">
-            <div>
-              <center>
-                <label htmlFor="browse" className="browse-btn">
-                  Drag and drop a single file here or click to select file
-                </label>
-              </center>
+        {!loading ? (
+          <>
+            <AiOutlineCloudUpload
+              style={{ fontSize: '60px', paddingTop: '1vh', paddingBottom: '1vh' }}
+            />
+            <div className="upload-info">
+              <div>
+                <center>
+                  <label htmlFor="browse" className="browse-btn">
+                    Drag and drop a single file here or click to select file
+                  </label>
+                </center>
+              </div>
             </div>
-          </div>
-          <input
-            type="file"
-            hidden
-            id="browse"
-            onChange={handleFileChange}
-            accept=".pdf,.docx,.txt,.png,.jpg,.jpeg"
-            multiple
-          />
-        </>
+            <input
+              type="file"
+              hidden
+              key={files.length}
+              id="browse"
+              onChange={handleFileChange}
+              accept=".pdf,.docx,.txt,.png,.jpg,.jpeg"
+              multiple={false}
+            />
+          </>
+        ) : (
+          <Spinner as="span" animation="border" role="status" aria-hidden="true" />
+        )}
 
         {files.length > 0 && (
           <div className="file-list">
@@ -78,15 +142,17 @@ const DragNdrop: React.FC<DragNdropProps> = ({ onFilesSelected }) => {
                 <div className="file-item" key={index}>
                   <div className="file-info">
                     <p
-                      title={`${file.name}\nType: ${file.type} \nLast Modified: ${new Date(
+                      title={`${file.name} - ${file.status}\nType: ${
+                        file.type
+                      } \nLast Modified: ${new Date(
                         file.lastModified,
-                      ).toLocaleString()} \nSize: ${formatFileSize(file.size)}`}
+                      ).toLocaleString()} \nSize: ${formatFileSize(parseInt(file.size + ''))}`}
                     >
                       {file.name}
                     </p>
                   </div>
                   <div className="file-actions">
-                    <MdClear onClick={() => handleRemoveFile(index)} />
+                    <MdClear onClick={() => handleRemoveFile(file.id)} />
                   </div>
                 </div>
               ))}

@@ -1,9 +1,8 @@
 from datetime import timedelta
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Body, Depends, HTTPException # type: ignore
+from sqlalchemy.orm import Session # type: ignore
 
 from api.deps import get_db
 from core.config import settings
@@ -18,12 +17,13 @@ router = APIRouter()
 @router.post("/login", response_model=Token)
 def login(
     db: Session = Depends(get_db),
-    form_data: OAuth2PasswordRequestForm = Depends()
+    username: str = Body(...),
+    password: str = Body(...)
 ) -> Any:
     """
-    OAuth2 compatible token login, get an access token for future requests
+    JSON based token login, get an access token for future requests
     """
-    user = authenticate_user(db, form_data.username, form_data.password)
+    user = authenticate_user(db, username, password)
     if not user:
         raise HTTPException(status_code=400, detail="Incorrect username or password")
     elif not user.is_active:

@@ -9,19 +9,22 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@babel/runtime": ">=7.26.10",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/material": "^6.4.7",
     "axios": "^1.8.2",
     "bootstrap": "^5.3.3",
     "holderjs": "^2.9.9",
-    "next": "15.2.1",
+    "next": "15.2.3",
     "react": "^19.0.0",
     "react-bootstrap": "^2.10.9",
     "react-dom": "^19.0.0",
-    "react-icons": "^5.5.0"
+    "react-icons": "^5.5.0",
+    "react-router-dom": "^7.3.0"
   },
   "devDependencies": {
+    "@babel/runtime": ">=7.26.10",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/holderjs": "^2.9.4",

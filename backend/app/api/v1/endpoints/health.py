@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import text
+from fastapi import APIRouter, Depends # type: ignore
+from sqlalchemy.orm import Session # type: ignore
+from sqlalchemy import text # type: ignore
 
 
 from api.deps import get_db
