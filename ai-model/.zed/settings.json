@@ -1,0 +1,12 @@
+{
+  "preferred_line_length": 80,
+  "languages": {
+    "Python": {
+      "language_servers": ["pyright", "ruff"]
+    }
+  },
+  "telemetry": {
+    "diagnostics": false,
+    "metrics": false
+  }
+}

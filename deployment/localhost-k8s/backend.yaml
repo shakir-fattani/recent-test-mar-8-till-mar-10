@@ -1,0 +1,172 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: claude-computer-use
+  labels:
+    app: backend
+spec:
+  replicas: 1 # Increased from 1 to 3 replicas for better availability
+  selector:
+    matchLabels:
+      app: backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0 # Zero downtime updates
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: localhost:5000/backend:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "400Mi"
+            limits:
+              cpu: "500m" # 1 cores
+              memory: "400Mi" # 1 Gi
+            # requests:
+            #   cpu: "200m"
+            #   memory: "256Mi"
+            # limits:
+            #   cpu: "200m"
+            #   memory: "256Mi"
+          env:
+            - name: AI_MODEL_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: AI_MODEL_BASE_URL
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: DATABASE_URL
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: SECRET_KEY
+            - name: ACCESS_TOKEN_EXPIRE_MINUTES
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: ACCESS_TOKEN_EXPIRE_MINUTES
+            - name: APP_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: APP_NAME
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: ENVIRONMENT
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            # - name: backend-app-volume
+            #   mountPath: /app
+            - name: upload-files
+              mountPath: /app/uploads
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            # timeoutSeconds: 5
+            # successThreshold: 1
+            # failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            # timeoutSeconds: 5
+            # successThreshold: 1
+            # failureThreshold: 3
+      volumes:
+        # - name: backend-app-volume
+        #   emptyDir: {}
+        - name: upload-files
+          hostPath:
+            path: /tmp/claude-uploads
+            type: DirectoryOrCreate
+        # - name: upload-files
+        #   persistentVolumeClaim:
+        #     claimName: upload-files-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: claude-computer-use
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8000
+      targetPort: 8000
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: claude-computer-use
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 40
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 30
+        - type: Percent
+          value: 80
+          periodSeconds: 30
+      selectPolicy: Max
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+  namespace: claude-computer-use
+spec:
+  minAvailable: 0 # Always keep at least 1 pod running
+  selector:
+    matchLabels:
+      app: backend

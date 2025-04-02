@@ -1,0 +1,208 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aimodel
+  namespace: claude-computer-use
+  labels:
+    app: aimodel
+spec:
+  replicas: 1 # Increased from 1 to 2 replicas for better availability
+  selector:
+    matchLabels:
+      app: aimodel
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0 # Zero downtime updates
+  template:
+    metadata:
+      labels:
+        app: aimodel
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - aimodel
+                topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: aimodel
+          image: localhost:5000/aimodel:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "700Mi"
+            limits:
+              cpu: "500m" # 1 cores
+              memory: "700Mi" # 1 Gi
+          env:
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: ANTHROPIC_API_KEY
+            - name: OS
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: OS
+            - name: PROJECT
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: PROJECT
+          ports:
+            - containerPort: 8000
+              name: api
+            - containerPort: 5900
+              name: vnc
+            - containerPort: 8501
+              name: streamlit
+            - containerPort: 6080
+              name: novnc
+            - containerPort: 8080
+              name: http
+            - containerPort: 50051
+              name: grpc
+          volumeMounts:
+            - name: upload-files
+              mountPath: /home/computeruse/uploads
+            # - name: enterprise-volume
+            #   mountPath: /home/computeruse/enterprise_computer_use/
+            - name: anthropic-volume
+              mountPath: /home/computeruse/.anthropic
+            - name: model-cache
+              mountPath: /home/computeruse/.cache
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            failureThreshold: 30
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"] # Grace period for connections to drain
+      terminationGracePeriodSeconds: 60 # Allow time for requests to complete
+      volumes:
+        - name: upload-files
+          hostPath:
+            path: /tmp/claude-uploads
+            type: DirectoryOrCreate
+        # - name: upload-files
+        #   persistentVolumeClaim:
+        #     claimName: upload-files-pvc
+        # - name: enterprise-volume
+        #   emptyDir: {}
+        - name: anthropic-volume
+          emptyDir: {}
+        - name: model-cache
+          emptyDir:
+            sizeLimit: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aimodel-service
+  namespace: claude-computer-use
+spec:
+  selector:
+    app: aimodel
+  ports:
+    - name: api
+      port: 8000
+      targetPort: api
+    - name: vnc
+      port: 5900
+      targetPort: vnc
+    - name: streamlit
+      port: 8501
+      targetPort: streamlit
+    - name: novnc
+      port: 6080
+      targetPort: novnc
+    - name: http
+      port: 8080
+      targetPort: http
+    - name: grpc
+      port: 50051
+      targetPort: grpc
+  type: ClusterIP
+  sessionAffinity: ClientIP # Stick requests from same client to same pod
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800 # 3 hours
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aimodel-hpa
+  namespace: claude-computer-use
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aimodel
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 90
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 90
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 600 # 10 minutes before scaling down
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 120
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 90
+          periodSeconds: 60
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aimodel-pdb
+  namespace: claude-computer-use
+spec:
+  minAvailable: 0 # Always keep at least 1 pod running
+  selector:
+    matchLabels:
+      app: aimodel

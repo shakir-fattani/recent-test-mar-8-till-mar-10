@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: claude-computer-use
+data:
+  OS: "linux"
+  PROJECT: "claude_computer_use"
+  AI_MODEL_BASE_URL: "http://aimodel-service:8000/"
+  APP_NAME: "FastAPI Backend"
+  ENVIRONMENT: "development"
+  NEXT_PUBLIC_API_URL: "/api/v1"

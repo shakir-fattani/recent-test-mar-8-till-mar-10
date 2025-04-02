@@ -1,0 +1,16 @@
+#############################################
+############# AI model service call #################
+#############################################
+@AImodelBaseUrl = http://localhost:8000
+
+###
+# @name sendMessage
+POST {{AImodelBaseUrl}}/send_message HTTP/1.1
+Accept: application/json
+Content-Type: application/json
+
+{
+    "messages": [
+        { "role": "user", "content": "hi" }
+    ]
+}

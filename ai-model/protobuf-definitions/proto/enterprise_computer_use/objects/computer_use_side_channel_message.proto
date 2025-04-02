@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package computer_use_objects;
+
+enum ComputerUseChannelDataTypeProto {
+  BOOLEAN = 0;
+  INT = 1;
+  FLOAT = 2;
+  FLOAT_LIST = 3;
+  STRING = 4;
+}
+
+message ComputerUseBoolDataProto {
+  bool val = 1;
+}
+
+message ComputerUseFloatDataProto {
+  float val = 1;
+}
+
+message ComputerUseFloatListDataProto {
+  repeated float val = 1;
+}
+
+message ComputerUseIntDataProto {
+  int32 val = 1;
+}
+
+message ComputerUseStringDataProto {
+  string val = 1;
+}
+
+message ComputerUseBytesDataProto {
+  bytes val = 1;
+}
+
+message ComputerUseSideChannelMessageProto {
+  string key = 1;
+  bool store_local = 2;
+  oneof data {
+     ComputerUseBoolDataProto boolVal = 3;
+     ComputerUseIntDataProto intVal = 4;
+     ComputerUseFloatDataProto floatVal = 5;
+     ComputerUseFloatListDataProto floatListVal = 6;
+     ComputerUseStringDataProto stringVal = 7;
+     ComputerUseBytesDataProto bytesVal = 8;
+  }
+
+}

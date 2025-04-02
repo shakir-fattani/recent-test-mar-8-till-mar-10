@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Cambio AI Agent</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+      .container {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+      .sidebar {
+        width: 300px;
+        background-color: #f5f5f5;
+        padding: 20px;
+        overflow-y: auto;
+        border-right: 1px solid #ddd;
+      }
+      .main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 20px;
+        overflow: hidden;
+      }
+      .chat-container {
+        flex: 1;
+        overflow-y: auto;
+        margin-bottom: 20px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+      }
+      .input-container {
+        display: flex;
+        padding: 10px 0;
+      }
+      .input-container input {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        margin-right: 10px;
+      }
+      .input-container button {
+        padding: 10px 20px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      .input-container button:hover {
+        background-color: #45a049;
+      }
+      .message {
+        margin-bottom: 15px;
+        padding: 10px;
+        border-radius: 5px;
+      }
+      .user {
+        background-color: #e6f7ff;
+        align-self: flex-end;
+      }
+      .assistant {
+        background-color: #f0f0f0;
+        align-self: flex-start;
+      }
+      .tool {
+        background-color: #fff3cd;
+        align-self: flex-start;
+        font-family: monospace;
+      }
+      pre {
+        background-color: #f8f8f8;
+        padding: 10px;
+        border-radius: 5px;
+        overflow-x: auto;
+      }
+      .warning {
+        background-color: #fff3cd;
+        padding: 10px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+        border-left: 5px solid #ffc107;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+      }
+      select,
+      input[type="text"],
+      input[type="password"],
+      textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      .btn {
+        padding: 8px 15px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .btn-danger {
+        background-color: #f44336;
+      }
+      .tabs {
+        display: flex;
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 20px;
+      }
+      .tab {
+        padding: 10px 20px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+      }
+      .tab.active {
+        border-bottom: 2px solid #4caf50;
+        font-weight: bold;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="main">
+        {% if warning %}
+        <div class="warning">{{ warning }}</div>
+        {% endif %}
+
+        <div class="tabs">
+          <div class="tab active" onclick="showTab('chat-tab')">Chat</div>
+          <div class="tab" onclick="showTab('logs-tab')">
+            HTTP Exchange Logs
+          </div>
+        </div>
+
+        <div id="chat-tab" class="tab-content active">
+          <div id="chat-container" class="chat-container">
+            {% for message in state.messages %}
+            <div class="message {{ message.role }}">
+              {% if message.content is string %} {{ message.content }} {% else
+              %} {% for block in message.content %} {% if block.type == "text"
+              %}
+              <p>{{ block.text }}</p>
+              {% elif block.type == "tool_use" %}
+              <pre>
+Tool Use: {{ block.name }}
+Input: {{ block.input }}</pre
+              >
+              {% elif block.type == "tool_result" %}
+              <div class="tool">
+                {% if block.content %}
+                <pre>{{ block.content }}</pre>
+                {% endif %} {% if block.error %}
+                <p class="error">Error: {{ block.error }}</p>
+                {% endif %} {% if block.image %}
+                <img
+                  src="data:image/png;base64,{{ block.image }}"
+                  style="max-width: 100%"
+                />
+                {% endif %}
+              </div>
+              {% elif block.type == "image" %}
+              <img
+                src="data:image/png;base64,{{ block.source.data }}"
+                style="max-width: 100%"
+              />
+              {% endif %} {% endfor %} {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="input-container">
+            <input
+              type="text"
+              id="message-input"
+              placeholder="Type a message to send to the AI agent..."
+              {%
+              if
+              state.in_sampling_loop
+              %}disabled{%
+              endif
+              %}
+            />
+            <button
+              id="send-button"
+              onclick="sendMessage()"
+              {%
+              if
+              state.in_sampling_loop
+              %}disabled{%
+              endif
+              %}
+            >
+              Send
+            </button>
+          </div>
+        </div>
+
+        <div id="logs-tab" class="tab-content">
+          <h3>HTTP Exchange Logs</h3>
+          <div id="logs-container">
+            {% for id, (request, response) in state.responses.items() %}
+            <div class="log-entry">
+              <h4>Request/Response ({{ id }})</h4>
+              <pre>
+{{ request.method }} {{ request.url }}
+{% for key, value in request.headers.items() %}{{ key }}: {{ value }}
+{% endfor %}</pre
+              >
+              <pre>{{ request.read().decode() }}</pre>
+              <hr />
+              {% if response is mapping %}
+              <pre>{{ response }}</pre>
+              {% else %}
+              <pre>
+{{ response.status_code }}
+{% for key, value in response.headers.items() %}{{ key }}: {{ value }}
+{% endfor %}</pre
+              >
+              <pre>{{ response.text }}</pre>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Function to send a message to the API
+      async function sendMessage() {
+        const messageInput = document.getElementById("message-input");
+        const message = messageInput.value.trim();
+        if (!message) return;
+
+        // Disable input and button while processing
+        messageInput.disabled = true;
+        document.getElementById("send-button").disabled = true;
+
+        try {
+          // Add user message to UI immediately
+          addMessage("user", message);
+          messageInput.value = "";
+
+          // Send the message to the API
+          const response = await axios.post("/send_message", {
+            messages: [{ role: "user", content: message }],
+          });
+
+          // Update the chat with the full conversation
+          updateChat(response.data.messages);
+        } catch (error) {
+          console.error("Error sending message:", error);
+          addMessage(
+            "assistant",
+            `Error: ${error.response?.data?.error || error.message}`
+          );
+        } finally {
+          // Re-enable input and button
+          messageInput.disabled = false;
+          document.getElementById("send-button").disabled = false;
+        }
+      }
+
+      // Add a simple message to the UI
+      function addMessage(role, content) {
+        const chatContainer = document.getElementById("chat-container");
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${role}`;
+        messageDiv.textContent = content;
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+
+      // Update the entire chat with structured messages
+      function updateChat(messages) {
+        const chatContainer = document.getElementById("chat-container");
+        chatContainer.innerHTML = "";
+
+        messages.forEach((message) => {
+          const messageDiv = document.createElement("div");
+          messageDiv.className = `message ${message.role}`;
+
+          if (typeof message.content === "string") {
+            messageDiv.textContent = message.content;
+          } else if (Array.isArray(message.content)) {
+            message.content.forEach((block) => {
+              if (block.type === "text") {
+                const p = document.createElement("p");
+                p.textContent = block.text;
+                messageDiv.appendChild(p);
+              } else if (block.type === "tool_use") {
+                const pre = document.createElement("pre");
+                pre.textContent = `Tool Use: ${
+                  block.name
+                }\nInput: ${JSON.stringify(block.input, null, 2)}`;
+                messageDiv.appendChild(pre);
+              } else if (block.type === "tool_result") {
+                const toolDiv = document.createElement("div");
+                toolDiv.className = "tool";
+
+                if (block.content) {
+                  const pre = document.createElement("pre");
+                  pre.textContent = block.content;
+                  toolDiv.appendChild(pre);
+                }
+
+                if (block.error) {
+                  const errorP = document.createElement("p");
+                  errorP.className = "error";
+                  errorP.textContent = `Error: ${block.error}`;
+                  toolDiv.appendChild(errorP);
+                }
+
+                if (block.image) {
+                  const img = document.createElement("img");
+                  img.src = `data:image/png;base64,${block.image}`;
+                  img.style.maxWidth = "100%";
+                  toolDiv.appendChild(img);
+                }
+
+                messageDiv.appendChild(toolDiv);
+              } else if (
+                block.type === "image" &&
+                block.source &&
+                block.source.data
+              ) {
+                const img = document.createElement("img");
+                img.src = `data:image/png;base64,${block.source.data}`;
+                img.style.maxWidth = "100%";
+                messageDiv.appendChild(img);
+              }
+            });
+          }
+
+          chatContainer.appendChild(messageDiv);
+        });
+
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+
+      // Function to show active tab
+      function showTab(tabId) {
+        const tabs = document.querySelectorAll(".tab");
+        const tabContents = document.querySelectorAll(".tab-content");
+
+        tabs.forEach((tab) => tab.classList.remove("active"));
+        tabContents.forEach((content) => content.classList.remove("active"));
+
+        document
+          .querySelector(`.tab[onclick="showTab('${tabId}')"]`)
+          .classList.add("active");
+        document.getElementById(tabId).classList.add("active");
+      }
+
+      // Function to change the provider
+      async function changeProvider() {
+        const provider = document.getElementById("provider").value;
+
+        try {
+          const response = await axios.post(
+            "/set_provider",
+            new URLSearchParams({
+              provider: provider,
+            }),
+            {
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+            }
+          );
+
+          // Update model input with new provider's default model
+          if (response.data && response.data.model) {
+            document.getElementById("model").value = response.data.model;
+          }
+
+          // Update the API key field
+          document.getElementById("api_key").value = "";
+        } catch (error) {
+          console.error("Error changing provider:", error);
+          alert(`Error: ${error.response?.data?.error || error.message}`);
+        }
+      }
+
+      // Function to save the API key
+      async function saveApiKey() {
+        const provider = document.getElementById("provider").value;
+        const apiKey = document.getElementById("api_key").value;
+
+        try {
+          await axios.post(
+            "/set_api_key",
+            new URLSearchParams({
+              provider: provider,
+              api_key: apiKey,
+            }),
+            {
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+            }
+          );
+
+          alert("API key saved successfully!");
+        } catch (error) {
+          console.error("Error saving API key:", error);
+          alert(`Error: ${error.response?.data?.error || error.message}`);
+        }
+      }
+
+      // Function to save the model
+      async function saveModel() {
+        const model = document.getElementById("model").value;
+
+        try {
+          await axios.post(
+            "/set_model",
+            new URLSearchParams({
+              model: model,
+            }),
+            {
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+            }
+          );
+
+          alert("Model saved successfully!");
+        } catch (error) {
+          console.error("Error saving model:", error);
+          alert(`Error: ${error.response?.data?.error || error.message}`);
+        }
+      }
+
+      // Function to save the configuration
+      async function saveConfig() {
+        const recentImages = document.getElementById("recent_images").value;
+        const systemPrompt = document.getElementById("system_prompt").value;
+        const hideImages = document.getElementById("hide_images").checked;
+
+        try {
+          await axios.post(
+            "/set_config",
+            new URLSearchParams({
+              only_n_most_recent_images: recentImages,
+              custom_system_prompt: systemPrompt,
+              hide_images: hideImages,
+            }),
+            {
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+            }
+          );
+
+          alert("Configuration saved successfully!");
+        } catch (error) {
+          console.error("Error saving configuration:", error);
+          alert(`Error: ${error.response?.data?.error || error.message}`);
+        }
+      }
+
+      // Function to reset the state
+      async function resetState() {
+        if (
+          !confirm(
+            "Are you sure you want to reset the application? This will clear all messages and reset the environment."
+          )
+        ) {
+          return;
+        }
+
+        try {
+          await axios.post("/reset");
+          window.location.reload();
+        } catch (error) {
+          console.error("Error resetting state:", error);
+          alert(`Error: ${error.response?.data?.error || error.message}`);
+        }
+      }
+
+      // Listen for Enter key in the message input
+      document
+        .getElementById("message-input")
+        .addEventListener("keypress", function (event) {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            sendMessage();
+          }
+        });
+    </script>
+  </body>
+</html>

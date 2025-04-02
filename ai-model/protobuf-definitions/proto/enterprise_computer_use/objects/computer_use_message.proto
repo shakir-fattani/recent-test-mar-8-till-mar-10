@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+import "enterprise_computer_use/objects/computer_use_side_channel_message.proto";
+import "enterprise_computer_use/objects/computer_use_empty_message.proto";
+import "enterprise_computer_use/objects/computer_use_data_message.proto";
+
+package computer_use_objects;
+
+enum ComputerUseMessageTypeProto {
+  EMPTY = 0;
+  CHANNEL = 1;
+  DATA = 2;
+}
+
+message ComputerUseMessageHeaderProto {
+  int32 status = 1;
+  string message = 2;
+}
+
+message ComputerUseMessageProto {
+  ComputerUseMessageHeaderProto header = 1;
+
+  oneof msg {
+    ComputerUseEmptyMessageProto emptyMsg = 2;
+    ComputerUseSideChannelMessageProto sideChannelMsg = 3;
+    ComputerUseDataMessageProto dataMsg = 4;
+  }
+}

@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data-pvc
+  namespace: claude-computer-use
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pgadmin-data-pvc
+  namespace: claude-computer-use
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# This PVC will be shared between services
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: upload-files-pvc
+  namespace: claude-computer-use
+spec:
+  accessModes:
+    - ReadWriteMany # Important: Must be RWX for sharing between pods
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+

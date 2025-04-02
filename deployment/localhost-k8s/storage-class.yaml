@@ -1,0 +1,9 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: shared-storage
+provisioner: k8s.io/minikube-hostpath
+parameters:
+  type: DirectoryOrCreate
+reclaimPolicy: Retain
+volumeBindingMode: Immediate

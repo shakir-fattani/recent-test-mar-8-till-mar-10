@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package computer_use_objects;
+
+message ComputerUseDataMessageProto {
+  bytes data = 1;
+}

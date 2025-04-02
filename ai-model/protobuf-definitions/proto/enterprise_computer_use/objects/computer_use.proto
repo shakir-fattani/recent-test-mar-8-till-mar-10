@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+import "enterprise_computer_use/objects/computer_use_message.proto";
+
+package computer_use_objects;
+
+service ComputerUseProto {
+  rpc step(ComputerUseMessageProto) returns (ComputerUseMessageProto) {}
+  rpc reset(ComputerUseMessageProto) returns (ComputerUseMessageProto) {}
+  rpc close(ComputerUseMessageProto) returns (ComputerUseMessageProto) {}
+  rpc observation_space(ComputerUseMessageProto) returns (ComputerUseMessageProto) {}
+  rpc action_space(ComputerUseMessageProto) returns (ComputerUseMessageProto) {}
+
+  rpc side_channel_send(ComputerUseMessageProto) returns (ComputerUseMessageProto) {}
+  rpc side_channel_stream(ComputerUseMessageProto) returns (stream ComputerUseMessageProto) {}
+}
