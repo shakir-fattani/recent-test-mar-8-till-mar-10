@@ -1,0 +1,68 @@
+name: Build and Push AI-Model Docker Image
+# This GitHub Actions workflow builds and pushes a Docker image for the ai-model service
+# of the Claude Computer Use project. It triggers on pushes to the main branch
+# and only when files in the ai-model, deployment/cloud-k8s, or .github/workflows directories are changed.
+# The workflow logs into Docker Hub, builds the Docker image using the Dockerfile in the ai-model directory,
+# and then pushes the image to Docker Hub with the commit SHA as the tag.
+# The image is tagged with the format: fattanishakir/claude-computer-use-ai-model:<commit-sha>.
+# The commit SHA is set as an environment variable for use in the build and push steps.
+# The workflow uses the latest version of Ubuntu as the runner environment.
+# The Docker Hub credentials are stored as secrets in the GitHub repository.
+# The workflow is designed to ensure that the ai-model service is always up-to-date with the latest code changes.
+
+on:
+  push:
+    branches:
+      - main # or your desired branch
+    paths:
+      - "ai-model/**"
+      - "deployment/cloud-k8s/**"
+      - ".github/workflows/ai-model-publish.yml"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set Commit ID
+        run: echo "COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+      # - name: Build Docker Baseline Image
+      #   run: |
+      #     docker build -t fattanishakir/claude-computer-use-ai-model-baseline:$GITHUB_SHA -f ./ai-model/Dockerfile.baseline ./ai-model
+
+      # - name: Tag Docker Baseline Image
+      #   run: |
+      #     docker tag fattanishakir/claude-computer-use-ai-model-baseline:$GITHUB_SHA fattanishakir/claude-computer-use-ai-model-baseline:latest
+
+      # - name: Push Docker Baseline Image
+      #   run: |
+      #     docker push fattanishakir/claude-computer-use-ai-model-baseline:$GITHUB_SHA && docker push fattanishakir/claude-computer-use-ai-model-baseline:latest
+
+      - name: Build Docker Main Image
+        run: |
+          du -hd 2
+
+      - name: Build Docker Main Image
+        run: |
+          docker build -t fattanishakir/claude-computer-use-ai-model:$GITHUB_SHA -f ./ai-model/Dockerfile ./ai-model
+
+      - name: Push Docker Main Image
+        run: |
+          docker push fattanishakir/claude-computer-use-ai-model:$GITHUB_SHA
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Save DigitalOcean kubeconfig with short-lived credentials
+        run: doctl kubernetes cluster kubeconfig save --expiry-seconds 600 ${{ secrets.CLUSTER_NAME }}
